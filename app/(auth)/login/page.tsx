@@ -2,8 +2,13 @@
 
 import { useState } from "react";
 import { auth } from "@/lib/firebase";
-import { signInWithPopup, GoogleAuthProvider, signInWithEmailAndPassword } from "firebase/auth";
+import { 
+  signInWithPopup, 
+  GoogleAuthProvider, 
+  signInWithEmailAndPassword 
+} from "firebase/auth";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -32,7 +37,6 @@ export default function LoginPage() {
   const handleGoogleLogin = async () => {
     try {
       setLoading(true);
-
       const provider = new GoogleAuthProvider();
       const result = await signInWithPopup(auth, provider);
       const idToken = await result.user.getIdToken();
@@ -40,41 +44,51 @@ export default function LoginPage() {
       await createSession(idToken);
 
       toast.success("Login success 🎉");
-
       router.push("/dashboard");
       router.refresh();
     } catch (error: any) {
-      console.error(error);
-      toast.error(error.message || "Login failed");
+      toast.error("Google login failed. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
   const handleEmailLogin = async () => {
+    if (!email || !password) {
+      return toast.error("Please enter both email and password");
+    }
+
     try {
       setLoading(true);
-
       const result = await signInWithEmailAndPassword(auth, email, password);
-
       const idToken = await result.user.getIdToken();
+
       await createSession(idToken);
 
       toast.success("Login success 🎉");
-
       router.push("/dashboard");
       router.refresh();
     } catch (error: any) {
-      console.error(error);
-
+      
       let message = "Login failed";
 
-      if (error.code === "auth/user-not-found") {
-        message = "User not found";
-      } else if (error.code === "auth/wrong-password") {
-        message = "wrong password";
-      } else if (error.code === "auth/invalid-email") {
-        message = "invalid email format";
+      switch (error.code) {
+        case "auth/invalid-credential":
+        case "auth/user-not-found":
+        case "auth/wrong-password":
+          message = "Invalid email or password. Please try again or register.";
+          break;
+        case "auth/invalid-email":
+          message = "The email address format is invalid.";
+          break;
+        case "auth/too-many-requests":
+          message = "Too many failed attempts. Try again later.";
+          break;
+        case "auth/user-disabled":
+          message = "This account has been disabled.";
+          break;
+        default:
+          message = "An unexpected error occurred. Please try again.";
       }
 
       toast.error(message);
@@ -106,22 +120,49 @@ export default function LoginPage() {
             <Separator className="flex-1" />
           </div>
 
-          <Input
-            placeholder="Email address"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
+          <div className="space-y-2">
+            <Input
+              type="email"
+              placeholder="Email address"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              disabled={loading}
+            />
+            <Input
+              type="password"
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              disabled={loading}
+            />
+            
+            <div className="text-right">
+              <Link 
+                href="/reset" 
+                className="text-sm text-primary hover:underline text-muted-foreground"
+              >
+                Forgot Password?
+              </Link>
+            </div>
+          </div>
 
-          <Input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-
-          <Button className="w-full" onClick={handleEmailLogin} disabled={loading}>
+          <Button 
+            className="w-full" 
+            onClick={handleEmailLogin} 
+            disabled={loading}
+          >
             {loading ? "Signing in..." : "Login with Email"}
           </Button>
+
+          <div className="text-center text-sm">
+            Don't have an account?{" "}
+            <Link 
+              href="/register" 
+              className="font-semibold text-primary hover:underline"
+            >
+              Register now
+            </Link>
+          </div>
         </CardContent>
       </Card>
     </div>
